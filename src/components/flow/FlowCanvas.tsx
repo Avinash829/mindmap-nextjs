@@ -9,6 +9,7 @@ import {
     Controls,
     Background,
     MiniMap,
+    Connection
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -20,12 +21,9 @@ import PresentationMode from "@/components/presentation/PresentationMode";
 import {
     CustomNode as MindNode,
     CustomEdge,
-    CustomConnection,
 } from "@/types/mindmap";
 
-const nodeTypes = {
-    customNode: CustomNode,
-};
+const nodeTypes = { customNode: CustomNode };
 
 export default function FlowCanvas() {
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -40,159 +38,174 @@ export default function FlowCanvas() {
     ]);
 
     const [edges, setEdges, onEdgesChange] = useEdgesState<CustomEdge>([]);
-    const [nodeIdCounter, setNodeIdCounter] = useState<number>(2);
+    const [nodeIdCounter, setNodeIdCounter] = useState(2);
     const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
     const [isPresentationMode, setIsPresentationMode] = useState(false);
     const [showColorModal, setShowColorModal] = useState(false);
     const [selectedParentForColor, setSelectedParentForColor] = useState<string | null>(null);
     const [colorChoice, setColorChoice] = useState("#4f46e5");
 
-    // Add edge 
-    const onConnect = useCallback(
-        (params: CustomConnection) =>
-            setEdges((eds) =>
-                addEdge(
-                    {
-                        id: nodeIdCounter.toString(),
-                        ...params,
-                        source: params.source ?? "",
-                        target: params.target ?? "",
-                        type: "smoothstep",
-                        animated: false,
-                        style: { stroke: "#9ca3af", strokeWidth: 1.5 },
-                    },
-                    eds
+   const onConnect = useCallback(
+        (connection: Connection) => {
+            if (!connection.source || !connection.target) return;
+
+            const alreadyExists = edges.some(
+                e => e.source === connection.source && e.target === connection.target
+            );
+            if (alreadyExists) return;
+
+            const parentNode = nodes.find(n => n.id === connection.source);
+            const parentColor = parentNode?.data.color ?? "#9ca3af";
+
+            const edgeId = `e${connection.source}-${connection.target}`;
+            const newEdge: CustomEdge = {
+                ...connection,
+                id: edgeId,
+                type: "smoothstep",
+                animated: true,
+                style: { stroke: parentColor, strokeWidth: 2 },
+            };
+
+            setEdges(eds => addEdge(newEdge, eds));
+
+           setNodes(nds =>
+                nds.map(n =>
+                    n.id === connection.target && !n.data.color
+                        ? { ...n, data: { ...n.data, color: parentColor } }
+                        : n
                 )
-            ),
-        [setEdges, nodeIdCounter]
+            );
+        },
+        [edges, nodes, setEdges, setNodes]
     );
 
-   // Add child node with parent node color
-const addChildNode = useCallback(
-    (parentId?: string, color?: string) => {
-        const parent = parentId ? nodes.find((n) => n.id === parentId) : null;
-        const parentLevel = parent?.data.level ?? -1;
-        const newLevel = parentLevel + 1;
+    
+    const addChildNode = useCallback(
+        (parentId: string, color?: string) => {
+            const parent = nodes.find(n => n.id === parentId);
+            if (!parent) return;
 
-        // node position
-        let newPosition = { x: 400, y: 400 };
-        if (parent) {
-            const childrenCount = edges.filter((e) => e.source === parentId).length;
-            const angle = childrenCount * 60 - 30;
-            const distance = 150 + newLevel * 50;
-            newPosition = {
-                x: parent.position.x + Math.cos((angle * Math.PI) / 180) * distance,
-                y: parent.position.y + Math.sin((angle * Math.PI) / 180) * distance,
+            const newNodeId = nodeIdCounter.toString();
+            const newLevel = (parent.data.level ?? 0) + 1;
+            const childColor = color ?? parent.data.color ?? "#4f46e5";
+
+            const siblings = edges.filter(e => e.source === parentId);
+            const angleStep = 360 / Math.max(siblings.length + 1, 6);
+            const angle = siblings.length * angleStep;
+            const radius = 150 + newLevel * 50;
+
+            const newNode: MindNode = {
+                id: newNodeId,
+                type: "customNode",
+                position: {
+                    x: parent.position.x + Math.cos((angle * Math.PI) / 180) * radius,
+                    y: parent.position.y + Math.sin((angle * Math.PI) / 180) * radius,
+                },
+                data: {
+                    label: `Node ${newNodeId}`,
+                    level: Math.min(newLevel, 3),
+                    isEditing: true,
+                    description: "",
+                    color: childColor,
+                },
             };
-        }
 
-        //child color
-        const childColor = color ?? parent?.data.color ?? "#4f46e5";
+            setNodes(nds => [...nds, newNode]);
+            setNodeIdCounter(prev => prev + 1);
 
-        const newNodeId = nodeIdCounter.toString();
-        const newNode: MindNode = {
-            id: newNodeId,
-            type: "customNode",
-            position: newPosition,
-            data: {
-                label: `Node ${newNodeId}`,
-                level: Math.min(newLevel, 3),
-                isEditing: true,
-                description: "",
-                color: childColor,
-            },
-        };
-
-        setNodes((nds) => nds.concat(newNode));
-        setNodeIdCounter((prev) => prev + 1);
-
-        if (parentId) {
+        
             const newEdge: CustomEdge = {
                 id: `e${parentId}-${newNodeId}`,
                 source: parentId,
                 target: newNodeId,
                 type: "smoothstep",
-                style: { stroke: childColor, strokeWidth: 1.5 },
+                animated: true,
+                style: { stroke: childColor, strokeWidth: 2 },
             };
-            setEdges((eds) => eds.concat(newEdge));
-        }
-    },
-    [nodes, edges, nodeIdCounter, setNodes, setEdges]
-);
+            setEdges(eds => [...eds, newEdge]);
 
-// Add Child click
-const handleAddChild = useCallback(
-    (parentId?: string) => {
-        if (!parentId) return;
+            
+            setSelectedNodeId(newNodeId);
+        },
+        [nodes, edges, nodeIdCounter, setNodes, setEdges]
+    );
 
-        const parent = nodes.find((n) => n.id === parentId);
-        if (!parent) return;
 
-        // parent color copy to child
-        if (parent.data.color) {
-            addChildNode(parentId, parent.data.color);
-        } else {
-            // modal for color selection
-            setSelectedParentForColor(parentId);
-            setColorChoice("#4f46e5");
-            setShowColorModal(true);
-        }
-    },
-    [nodes, addChildNode]
-);
 
-// Add root node and ask for color
-const handleAddNode = useCallback(() => {
-    const newId = nodeIdCounter.toString();
-    const newNode: MindNode = {
-        id: newId,
-        type: "customNode",
-        position: { x: 400, y: 200 },
-        data: { label: `Node ${newId}`, level: 0, description: "", color: undefined },
+    const handleAddChild = useCallback(
+        (parentId?: string) => {
+            if (!parentId) return;
+
+            const parent = nodes.find(n => n.id === parentId);
+            if (!parent) return;
+
+            if (parent.data.color) {
+                addChildNode(parentId);
+            } else {
+                setSelectedParentForColor(parentId);
+                setColorChoice("#4f46e5");
+                setShowColorModal(true);
+            }
+        },
+        [nodes, addChildNode]
+    );
+
+
+
+    const handleAddNode = useCallback(() => {
+        const newId = nodeIdCounter.toString();
+        const rootNodes = nodes.filter(n => n.data.level === 0);
+        const spacing = 250;
+        const xPos = 400 + rootNodes.length * spacing;
+        const yPos = 200;
+
+        const newNode: MindNode = {
+            id: newId,
+            type: "customNode",
+            position: { x: xPos, y: yPos },
+            data: { label: `Node ${newId}`, level: 0, description: "", color: undefined },
+        };
+
+        setNodes(nds => [...nds, newNode]);
+        setNodeIdCounter(prev => prev + 1);
+
+        setSelectedParentForColor(newId);
+        setColorChoice("#4f46e5");
+        setShowColorModal(true);
+    }, [nodeIdCounter, nodes, setNodes]);
+
+
+    const confirmColor = () => {
+        if (!selectedParentForColor) return;
+        const parentId = selectedParentForColor;
+
+        setNodes(nds =>
+            nds.map(n =>
+                n.id === parentId ? { ...n, data: { ...n.data, color: colorChoice } } : n
+            )
+        );
+
+        setShowColorModal(false);
+        setSelectedParentForColor(null);
     };
 
-    setNodes((nds) => nds.concat(newNode));
-    setNodeIdCounter((prev) => prev + 1);
-
-    setSelectedParentForColor(newId);
-    setColorChoice("#4f46e5");
-    setShowColorModal(true);
-}, [nodeIdCounter, setNodes]);
-
-const confirmColor = () => {
-  if (!selectedParentForColor) return;
-
-  const parentId = selectedParentForColor;
-  const color = colorChoice;
-
-  setNodes((nds) =>
-    nds.map((n) =>
-      n.id === parentId ? { ...n, data: { ...n.data, color } } : n
-    )
-  );
-
-  setShowColorModal(false);
-  setSelectedParentForColor(null);
-};
-
-
-
-    // Delete node
+  
     const deleteNode = useCallback(
         (nodeId: string) => {
             if (nodeId === "1") return;
-            setNodes((nds) => nds.filter((n) => n.id !== nodeId));
-            setEdges((eds) => eds.filter((e) => e.source !== nodeId && e.target !== nodeId));
+            setNodes(nds => nds.filter(n => n.id !== nodeId));
+            setEdges(eds => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
             setSelectedNodeId(null);
         },
         [setNodes, setEdges]
     );
 
-    // Select node
+    
     const onNodeClick = useCallback(
         (_: React.MouseEvent, node: MindNode) => setSelectedNodeId(node.id),
         []
     );
+
 
     if (isPresentationMode) {
         return (
@@ -204,24 +217,22 @@ const confirmColor = () => {
         );
     }
 
-    // Main Canvas
     return (
         <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
             <Toolbar
-  onAddNode={handleAddNode}
-  onAddChild={() => selectedNodeId && handleAddChild(selectedNodeId)}
-  onDeleteNode={() => selectedNodeId && deleteNode(selectedNodeId)}
-  onAutoLayout={() => {}}
-  onPresent={() => setIsPresentationMode(true)}
-  onExport={() => ({ nodes, edges })}
-  onImport={(data) => {
-    setNodes(data.nodes);
-    setEdges(data.edges);
-  }}
-  fileInputRef={fileInputRef}
-  selectedNodeId={selectedNodeId}
-/>
-
+                onAddNode={handleAddNode}
+                onAddChild={() => selectedNodeId && handleAddChild(selectedNodeId)}
+                onDeleteNode={() => selectedNodeId && deleteNode(selectedNodeId)}
+                onAutoLayout={() => {}}
+                onPresent={() => setIsPresentationMode(true)}
+                onExport={() => ({ nodes, edges })}
+                onImport={(data) => {
+                    setNodes(data.nodes);
+                    setEdges(data.edges);
+                }}
+                fileInputRef={fileInputRef}
+                selectedNodeId={selectedNodeId}
+            />
 
             <QuickGuide />
 
@@ -230,8 +241,8 @@ const confirmColor = () => {
                 edges={edges}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
                 onNodeClick={onNodeClick}
+                onConnect={onConnect}   // ✅ now fully working
                 nodeTypes={nodeTypes}
                 fitView
                 proOptions={{ hideAttribution: true }}
@@ -256,7 +267,7 @@ const confirmColor = () => {
                                 height: "50px",
                                 border: "none",
                                 borderRadius: "8px",
-                                cursor: "pointer",
+                                cursor: "pointer"
                             }}
                         />
                         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "1.5rem" }}>
@@ -268,7 +279,7 @@ const confirmColor = () => {
                                     padding: "0.4rem 0.8rem",
                                     borderRadius: "6px",
                                     marginRight: "0.5rem",
-                                    cursor: "pointer",
+                                    cursor: "pointer"
                                 }}
                             >
                                 Cancel
@@ -281,7 +292,7 @@ const confirmColor = () => {
                                     padding: "0.4rem 0.8rem",
                                     borderRadius: "6px",
                                     border: "none",
-                                    cursor: "pointer",
+                                    cursor: "pointer"
                                 }}
                             >
                                 Confirm
@@ -294,7 +305,7 @@ const confirmColor = () => {
     );
 }
 
-// Modal Styles
+
 const modalOverlayStyle: React.CSSProperties = {
     position: "fixed",
     top: 0,

@@ -110,6 +110,7 @@ export default function Toolbar({
       >
         <button onClick={onAddNode} style={buttonStyle} title="Add root node">
           <Plus size={16} />
+          <span style={labelStyle}>Add Node</span>
         </button>
 
         <button
@@ -123,30 +124,38 @@ export default function Toolbar({
           title="Add child node"
         >
           <Plus size={14} />
+          <span style={labelStyle}>Add Child</span>
         </button>
 
-        <button
-          onClick={onDeleteNode}
-          disabled={!selectedNodeId || selectedNodeId === "1"}
-          style={{
-            ...buttonStyle,
-            opacity: selectedNodeId && selectedNodeId !== "1" ? 1 : 0.5,
-            cursor:
-              selectedNodeId && selectedNodeId !== "1"
-                ? "pointer"
-                : "not-allowed",
-          }}
-          title="Delete node"
-        >
-          <Trash2 size={16} />
-        </button>
+       <button
+  onClick={onDeleteNode}
+  disabled={!selectedNodeId || selectedNodeId === "1"}
+  style={{
+    ...buttonStyle,
+    border: "1px solid #ef4444",
+    color: "#ef4444",                         
+    background: "rgba(239, 68, 68, 0.1)",   
+    opacity: selectedNodeId && selectedNodeId !== "1" ? 1 : 0.5,
+    cursor:
+      selectedNodeId && selectedNodeId !== "1"
+        ? "pointer"
+        : "not-allowed",
+  }}
+  title="Delete node"
+>
+  <Trash2 size={16} />
+  <span style={labelStyle}>Delete</span>
+</button>
+
 
         <button onClick={onAutoLayout} style={buttonStyle} title="Auto Layout">
           <Layout size={16} />
+          <span style={labelStyle}>Auto Layout</span>
         </button>
 
         <button onClick={onPresent} style={buttonStyle} title="Presentation Mode">
           <Play size={16} />
+          <span style={labelStyle}>Present</span>
         </button>
 
         <div style={{ position: "relative" }}>
@@ -156,6 +165,7 @@ export default function Toolbar({
             title="Export Mindmap"
           >
             <Download size={16} />
+            <span style={labelStyle}>Export</span>
             <ChevronDown size={14} style={{ marginLeft: "0.2rem" }} />
           </button>
           {showFormatDropdown && (
@@ -198,14 +208,18 @@ export default function Toolbar({
           title="Import Mindmap"
         >
           <Upload size={16} />
+          <span style={labelStyle}>Import</span>
         </button>
+
         <button
           onClick={() => setShowDriveModal(true)}
-          style={{ ...buttonStyle, padding: "0.3rem 0.5rem" }}
+          style={{ ...buttonStyle, padding: "0.5rem 0.75rem" }}
           title="Import from Drive"
         >
-          Upload from Drive
+          <Upload size={16} />
+          <span style={labelStyle}>Drive</span>
         </button>
+
         <input
           ref={fileInputRef}
           type="file"
@@ -216,14 +230,8 @@ export default function Toolbar({
       </div>
 
       {showDriveModal && (
-        <div
-          style={modalOverlayStyle}
-          onClick={() => setShowDriveModal(false)}
-        >
-          <div
-            style={modalStyle}
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div style={modalOverlayStyle} onClick={() => setShowDriveModal(false)}>
+          <div style={modalStyle} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: "flex", justifyContent: "space-between" }}>
               <h3 style={{ margin: 0 }}>Import from Google Drive</h3>
               <button
@@ -280,7 +288,7 @@ export default function Toolbar({
 }
 
 const buttonStyle: React.CSSProperties = {
-  padding: "0.5rem",
+  padding: "0.5rem 0.75rem",
   borderRadius: "6px",
   background: "white",
   border: "1px solid #d1d5db",
@@ -288,7 +296,13 @@ const buttonStyle: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
   justifyContent: "center",
+  gap: "0.4rem", // 👈 space between icon and text
   boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: "0.85rem",
+  fontWeight: 500,
 };
 
 const modalOverlayStyle: React.CSSProperties = {

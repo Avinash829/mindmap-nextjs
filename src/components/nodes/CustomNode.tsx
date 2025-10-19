@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useCallback } from "react";
 import { Handle, Position, useReactFlow } from "@xyflow/react";
 import { CustomNode, CustomNodeProps } from "@/types/mindmap";
@@ -43,22 +44,21 @@ export default function CustomNodeComponent({ data, id }: CustomNodeProps) {
     }
   };
 
-const baseStyle: React.CSSProperties = {
+  const baseStyle: React.CSSProperties = {
     padding: data.level <= 1 ? "16px 24px" : "12px 18px",
     borderRadius: "6px",
     border: `2px solid ${data.color || "rgba(50, 132, 239, 0.7)"}`,
-    background: data.color ? `${data.color}10` : "white", // light tint
+    background: data.color ? `${data.color}10` : "white",
     minWidth: data.level <= 1 ? "180px" : "120px",
     textAlign: "center",
     fontSize: data.level <= 1 ? "16px" : "14px",
     fontWeight: "500",
     boxShadow: isHovered
-        ? `0 4px 16px ${data.color ? data.color + "80" : "rgba(107,113,106,0.74)"}`
-        : "0 2px 8px rgba(0,0,0,0.08)",
+      ? `0 4px 16px ${data.color ? data.color + "80" : "rgba(107,113,106,0.74)"}`
+      : "0 2px 8px rgba(0,0,0,0.08)",
     transition: "all 0.2s ease",
     transform: isHovered ? "translateY(-1px)" : "translateY(0)",
-};
-
+  };
 
   return (
     <div
@@ -66,14 +66,17 @@ const baseStyle: React.CSSProperties = {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {["Top", "Bottom", "Left", "Right"].map((pos) => (
-        <Handle
-          key={pos}
-          type="source"
-          position={Position[pos as keyof typeof Position]}
-          style={{ background: "#9ca3af" }}
-        />
-      ))}
+      <Handle
+        type="target"
+        position={Position.Top}
+        style={{ background: "#9ca3af" }}
+      />
+
+  <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ background: "#9ca3af" }}
+      />
 
       {data.isEditing ? (
         <input
