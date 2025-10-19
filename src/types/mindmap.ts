@@ -55,15 +55,23 @@ export interface PresentationModeProps {
   onClose: () => void;
 }
 
+export interface MindmapExportData {
+  nodes: CustomNode[];
+  edges: CustomEdge[];
+}
+
+
 export interface ToolbarProps {
   onAddNode: () => void;
   onAddChild: () => void;
   onDeleteNode: () => void;
   onAutoLayout: () => void;
   onPresent: () => void;
-  onExport: () => void;
-  onImport: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  onExport?: () => MindmapExportData;      
+  onImport?: (data: MindmapExportData) => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   selectedNodeId: string | null;
 }
+
+
 

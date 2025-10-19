@@ -208,16 +208,20 @@ const confirmColor = () => {
     return (
         <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
             <Toolbar
-                onAddNode={handleAddNode}
-                onAddChild={() => selectedNodeId && handleAddChild(selectedNodeId)}
-                onDeleteNode={() => selectedNodeId && deleteNode(selectedNodeId)}
-                onAutoLayout={() => {}}
-                onPresent={() => setIsPresentationMode(true)}
-                onExport={() => {}}
-                onImport={() => {}}
-                fileInputRef={fileInputRef}
-                selectedNodeId={selectedNodeId}
-            />
+  onAddNode={handleAddNode}
+  onAddChild={() => selectedNodeId && handleAddChild(selectedNodeId)}
+  onDeleteNode={() => selectedNodeId && deleteNode(selectedNodeId)}
+  onAutoLayout={() => {}}
+  onPresent={() => setIsPresentationMode(true)}
+  onExport={() => ({ nodes, edges })}
+  onImport={(data) => {
+    setNodes(data.nodes);
+    setEdges(data.edges);
+  }}
+  fileInputRef={fileInputRef}
+  selectedNodeId={selectedNodeId}
+/>
+
 
             <QuickGuide />
 

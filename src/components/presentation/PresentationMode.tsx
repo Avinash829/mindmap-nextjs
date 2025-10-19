@@ -1,5 +1,6 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+
+import { useState, useRef, useCallback, useMemo } from "react";
 import { ArrowLeft, ArrowRight, Maximize2, Minimize2 } from "lucide-react";
 import { PresentationModeProps, SlideData, CustomNode } from "@/types/mindmap";
 
@@ -8,45 +9,47 @@ export default function PresentationMode({ nodes, edges, onClose }: Presentation
   const [isFullscreen, setIsFullscreen] = useState(false);
   const slideRef = useRef<HTMLDivElement>(null);
 
-  const buildSlides = (): SlideData[] => {
+  const slides: SlideData[] = useMemo(() => {
     const rootNode = nodes.find((n) => n.data.level === 0);
-    const slides: SlideData[] = [];
+    if (!rootNode) return [];
 
-    if (rootNode) {
-      slides.push({
-        type: "title",
-        title: rootNode.data.label,
-        description: rootNode.data.description || "",
+    const slidesArr: SlideData[] = [
+      { type: "title", title: rootNode.data.label, description: rootNode.data.description || "" },
+    ];
+
+    const topics = nodes.filter((n) => n.data.level === 1);
+    topics.forEach((topic) => {
+      const children = edges
+        .filter((e) => e.source === topic.id)
+        .map((e) => nodes.find((n) => n.id === e.target))
+        .filter((n): n is CustomNode => Boolean(n));
+
+      slidesArr.push({
+        type: "topic",
+        title: topic.data.label,
+        description: topic.data.description || "",
+        children: children.map((c) => c.data.label),
       });
+    });
 
-      const topics = nodes.filter((n) => n.data.level === 1);
-      topics.forEach((topic) => {
-        const children = edges
-          .filter((e) => e.source === topic.id)
-          .map((e) => nodes.find((n) => n.id === e.target))
-          .filter((n): n is CustomNode => Boolean(n));
+    return slidesArr;
+  }, [nodes, edges]);
 
-        slides.push({
-          type: "topic",
-          title: topic.data.label,
-          description: topic.data.description || "",
-          children: children.map((c) => c.data.label),
-        });
-      });
-    }
-    return slides;
-  };
+  const nextSlide = useCallback(
+    () => setCurrentSlide((prev) => Math.min(prev + 1, slides.length - 1)),
+    [slides.length]
+  );
 
-  const slides = buildSlides();
+  const prevSlide = useCallback(
+    () => setCurrentSlide((prev) => Math.max(prev - 1, 0)),
+    []
+  );
 
-  const nextSlide = () => setCurrentSlide((prev) => Math.min(prev + 1, slides.length - 1));
-  const prevSlide = () => setCurrentSlide((prev) => Math.max(prev - 1, 0));
-
-  const toggleFullscreen = () => {
+  const toggleFullscreen = useCallback(() => {
     if (!isFullscreen) document.documentElement.requestFullscreen?.();
     else document.exitFullscreen?.();
-    setIsFullscreen(!isFullscreen);
-  };
+    setIsFullscreen((prev) => !prev);
+  }, [isFullscreen]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -56,7 +59,7 @@ export default function PresentationMode({ nodes, edges, onClose }: Presentation
       }
       if (e.key === "Escape") onClose();
     },
-    [slides.length, onClose]
+    [slides.length, nextSlide, prevSlide, onClose]
   );
 
   return (
@@ -73,7 +76,6 @@ export default function PresentationMode({ nodes, edges, onClose }: Presentation
         fontFamily: "system-ui, -apple-system, sans-serif",
       }}
     >
-        
       <div
         style={{
           display: "flex",
@@ -132,7 +134,6 @@ export default function PresentationMode({ nodes, edges, onClose }: Presentation
         </button>
       </div>
 
-      {/* Slides */}
       <div style={{ flex: 1, position: "relative" }} ref={slideRef}>
         {slides.map((slide, idx) => (
           <div
@@ -152,17 +153,13 @@ export default function PresentationMode({ nodes, edges, onClose }: Presentation
             {slide.type === "title" && (
               <div style={{ textAlign: "center" }}>
                 <h1 style={{ fontSize: "3rem", color: "#6b7280" }}>{slide.title}</h1>
-                {slide.description && (
-                  <p style={{ fontSize: "1.5rem", color: "#9ca3af" }}>{slide.description}</p>
-                )}
+                {slide.description && <p style={{ fontSize: "1.5rem", color: "#9ca3af" }}>{slide.description}</p>}
               </div>
             )}
             {slide.type === "topic" && (
               <div style={{ maxWidth: 800 }}>
                 <h2 style={{ fontSize: "2.5rem", color: "#6b7280" }}>{slide.title}</h2>
-                {slide.description && (
-                  <p style={{ fontSize: "1.25rem", color: "#9ca3af" }}>{slide.description}</p>
-                )}
+                {slide.description && <p style={{ fontSize: "1.25rem", color: "#9ca3af" }}>{slide.description}</p>}
                 {slide.children && (
                   <ul style={{ listStyle: "none", padding: 0 }}>
                     {slide.children.map((child, i) => (
@@ -188,7 +185,6 @@ export default function PresentationMode({ nodes, edges, onClose }: Presentation
         ))}
       </div>
 
-      {/* Navigation */}
       {slides.length > 1 && (
         <div
           style={{
@@ -250,12 +246,10 @@ export default function PresentationMode({ nodes, edges, onClose }: Presentation
               gap: "0.5rem",
               padding: "0.75rem 1.5rem",
               borderRadius: "6px",
-              background:
-                currentSlide === slides.length - 1 ? "#d1d5db" : "#9ca3af",
+              background: currentSlide === slides.length - 1 ? "#d1d5db" : "#9ca3af",
               color: "white",
               border: "none",
-              cursor:
-                currentSlide === slides.length - 1 ? "not-allowed" : "pointer",
+              cursor: currentSlide === slides.length - 1 ? "not-allowed" : "pointer",
               fontSize: "0.875rem",
               fontWeight: "500",
             }}
